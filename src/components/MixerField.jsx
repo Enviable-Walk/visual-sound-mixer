@@ -112,6 +112,32 @@ export default function MixerField({ mode = 'admin', visibleControls = null, sho
     }
   }, [orbs, selectedOrbId]);
 
+  // Handle touch-based drag-and-drop from library items
+  useEffect(() => {
+    const field = fieldRef.current;
+    if (!field) return;
+
+    const handleTouchDrop = (e) => {
+      const { soundId, clientX, clientY } = e.detail;
+      if (!soundId) return;
+      resumeAudioContext();
+
+      const rect = field.getBoundingClientRect();
+      const x = (clientX - rect.left) / rect.width;
+      const y = (clientY - rect.top) / rect.height;
+
+      if (quantizeEnabled && window.__audioCtx) {
+        const nextBar = getNextBarTime(window.__audioCtx, bpm, 4);
+        addOrbWithSchedule(soundId, x, y, nextBar);
+      } else {
+        addOrb(soundId, Math.max(0, Math.min(1, x)), Math.max(0, Math.min(1, y)));
+      }
+    };
+
+    field.addEventListener('touchdrop', handleTouchDrop);
+    return () => field.removeEventListener('touchdrop', handleTouchDrop);
+  }, [quantizeEnabled, bpm, addOrb, addOrbWithSchedule]);
+
   const handleDragOver = (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';

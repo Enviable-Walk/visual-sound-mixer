@@ -71,6 +71,22 @@ export default function SoundOrb({
     };
   }, [orb.x, orb.y, containerRect]);
 
+  // Touch position drag
+  const handleTouchStart = useCallback((e) => {
+    if (e.target.closest('.orb-resize-handle') || e.target.closest('.orb-remove') || e.target.closest('.orb-mute')) return;
+
+    e.stopPropagation();
+    e.preventDefault();
+    setIsDragging(true);
+
+    const touch = e.touches[0];
+    const rect = containerRect();
+    dragOffset.current = {
+      x: touch.clientX - (orb.x * rect.width),
+      y: touch.clientY - (orb.y * rect.height),
+    };
+  }, [orb.x, orb.y, containerRect]);
+
   // Resize drag: on the resize handle (bottom edge)
   const handleResizeMouseDown = useCallback((e) => {
     if (e.button !== 0) return;
@@ -78,6 +94,14 @@ export default function SoundOrb({
     e.preventDefault();
     setIsResizing(true);
     resizeStart.current = { y: e.clientY, size: orb.size };
+  }, [orb.size]);
+
+  // Touch resize drag
+  const handleResizeTouchStart = useCallback((e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStart.current = { y: e.touches[0].clientY, size: orb.size };
   }, [orb.size]);
 
   useEffect(() => {
@@ -90,13 +114,27 @@ export default function SoundOrb({
       onUpdate(orb.id, { x: newX, y: newY });
     };
 
+    const handleTouchMove = (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = containerRect();
+      const newX = Math.max(0, Math.min(1, (touch.clientX - dragOffset.current.x) / rect.width));
+      const newY = Math.max(0, Math.min(1, (touch.clientY - dragOffset.current.y) / rect.height));
+      onUpdate(orb.id, { x: newX, y: newY });
+    };
+
     const handleMouseUp = () => setIsDragging(false);
+    const handleTouchEnd = () => setIsDragging(false);
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [isDragging, orb.id, onUpdate, containerRect]);
 
@@ -110,13 +148,25 @@ export default function SoundOrb({
       onUpdate(orb.id, { size: newSize });
     };
 
+    const handleTouchMoveResize = (e) => {
+      e.preventDefault();
+      const delta = resizeStart.current.y - e.touches[0].clientY;
+      const newSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, resizeStart.current.size + delta));
+      onUpdate(orb.id, { size: newSize });
+    };
+
     const handleMouseUp = () => setIsResizing(false);
+    const handleTouchEnd = () => setIsResizing(false);
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchmove', handleTouchMoveResize, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMoveResize);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [isResizing, orb.id, onUpdate]);
 
@@ -152,6 +202,7 @@ export default function SoundOrb({
         height: `${orb.size}px`,
       }}
       onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onWheel={handleWheel}
@@ -182,6 +233,7 @@ export default function SoundOrb({
       <div
         className="orb-resize-handle"
         onMouseDown={handleResizeMouseDown}
+        onTouchStart={handleResizeTouchStart}
         title="Drag up/down to change volume"
       >
         <svg width="12" height="6" viewBox="0 0 12 6">
@@ -197,7 +249,7 @@ export default function SoundOrb({
         </div>
       )}
 
-      {isHovered && (
+      {(isHovered || isDragging || 'ontouchstart' in window) && (
         <>
           <button
             className="orb-mute"

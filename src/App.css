@@ -1150,3 +1150,62 @@
   background: #e74c3c;
   color: white;
 }
+
+/* ========== Touch / Mobile Support ========== */
+.touch-drag-ghost {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  padding: 8px 16px;
+  background: var(--wts-yellow);
+  color: var(--wts-text);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* On touch devices, always show resize handle and buttons */
+@media (pointer: coarse) {
+  .orb-resize-handle {
+    opacity: 1;
+    width: 32px;
+    height: 18px;
+  }
+
+  .library-item-remove {
+    opacity: 1;
+  }
+
+  /* Prevent browser pull-to-refresh on the mixer field */
+  .mixer-field {
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+
+  /* Larger tap targets for buttons */
+  .orb-mute,
+  .orb-remove {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .control-button {
+    padding: 10px 14px;
+    font-size: 11px;
+  }
+
+  /* Stack mixer controls vertically on small screens */
+  .mixer-controls {
+    flex-wrap: wrap;
+    max-width: 50%;
+    justify-content: flex-end;
+  }
+}

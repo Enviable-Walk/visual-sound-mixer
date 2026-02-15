@@ -1,7 +1,8 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 
 export default function LibraryItem({ item, onRemove }) {
   const canvasRef = useRef(null);
+  const touchGhostRef = useRef(null);
 
   useEffect(() => {
     drawWaveform(canvasRef.current, item.audioBuffer);
@@ -12,11 +13,62 @@ export default function LibraryItem({ item, onRemove }) {
     e.dataTransfer.effectAllowed = 'copy';
   };
 
+  // Touch drag: create a floating ghost element and dispatch a custom event on drop
+  const handleTouchStart = useCallback((e) => {
+    // Don't interfere with the remove button
+    if (e.target.closest('.library-item-remove')) return;
+
+    const touch = e.touches[0];
+
+    // Create ghost element
+    const ghost = document.createElement('div');
+    ghost.className = 'touch-drag-ghost';
+    ghost.textContent = item.name;
+    ghost.style.left = `${touch.clientX}px`;
+    ghost.style.top = `${touch.clientY}px`;
+    document.body.appendChild(ghost);
+    touchGhostRef.current = ghost;
+
+    const handleTouchMove = (ev) => {
+      ev.preventDefault();
+      const t = ev.touches[0];
+      ghost.style.left = `${t.clientX}px`;
+      ghost.style.top = `${t.clientY}px`;
+    };
+
+    const handleTouchEnd = (ev) => {
+      const t = ev.changedTouches[0];
+      // Find the mixer field element at the drop point
+      ghost.style.display = 'none'; // hide ghost so elementFromPoint finds the field
+      const target = document.elementFromPoint(t.clientX, t.clientY);
+      ghost.remove();
+      touchGhostRef.current = null;
+
+      if (target) {
+        const mixerField = target.closest('.mixer-field');
+        if (mixerField) {
+          // Dispatch custom event with sound data and coordinates
+          mixerField.dispatchEvent(new CustomEvent('touchdrop', {
+            bubbles: false,
+            detail: { soundId: item.id, clientX: t.clientX, clientY: t.clientY },
+          }));
+        }
+      }
+
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
+  }, [item.id, item.name]);
+
   return (
     <div
       className="library-item"
       draggable
       onDragStart={handleDragStart}
+      onTouchStart={handleTouchStart}
     >
       <canvas ref={canvasRef} className="waveform-canvas" width={120} height={32} />
       <span className="library-item-name">{item.name}</span>
